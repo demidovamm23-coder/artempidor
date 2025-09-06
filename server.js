@@ -1,42 +1,55 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Подключаем body-parser для JSON и form-data
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Загружаем библиотеку стихов
-const library = JSON.parse(fs.readFileSync('library.json'));
-
-// Эндпоинт для навыка Алисы
+// ===== СТАРЫЙ WEBHOOK ДЛЯ АЛИСЫ =====
 app.post('/', (req, res) => {
-  const userLine = req.body?.request?.original_utterance || "";
+  const { request } = req.body;
+  let responseText = 'Привет!';
 
-  // Ищем стих, который начинается с указанной строки
-  const poem = library.find(p =>
-    p.lines.some(line => line.toLowerCase() === userLine.toLowerCase())
-  );
-
-  let responseText = "";
-
-  if (poem) {
-    if (poem.free || req.body?.session?.user?.premium) {
-      // Находим следующую строчку
-      const index = poem.lines.findIndex(line => line.toLowerCase() === userLine.toLowerCase());
-      responseText = poem.lines[index + 1] || "Стих закончился!";
-    } else {
-      responseText = "Этот стих доступен только в платной версии.";
+  if (request && request.command) {
+    if (request.command.toLowerCase() === 'привет') {
+      responseText = 'Привет! Как твои дела?';
+    } else if (request.command.toLowerCase() === 'пока') {
+      responseText = 'Пока! Хорошего дня!';
     }
-  } else {
-    responseText = "Не знаю такого стиха, попробуй другой!";
   }
 
   res.json({
-    response: { text: responseText },
-    version: req.body.version
+    version: '1.0',
+    response: {
+      text: responseText,
+      end_session: false
+    }
   });
 });
 
-// Запуск сервера
-const port = process.env.PORT || 10000;
-app.listen(port, "0.0.0.0", () => console.log(`Server running on port ${port}`));
+// ===== НОВЫЕ МАРШРУТЫ ДЛЯ OAUTH =====
+
+// Authorization URL
+app.get('/auth', (req, res) => {
+  res.send(`
+    <h1>Авторизация</h1>
+    <p>Нажмите кнопку, чтобы авторизоваться.</p>
+    <form action="/token" method="POST">
+      <input type="hidden" name="code" value="123">
+      <button type="submit">Войти</button>
+    </form>
+  `);
+});
+
+// Token URL
+app.post('/token', (req, res) => {
+  const code = req.body.code || 'default-code';
+  res.json({ access_token: 'token-for-' + code });
+});
+
+// ===== ЗАПУСК СЕРВЕРА =====
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
+});
