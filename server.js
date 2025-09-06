@@ -75,15 +75,15 @@ app.post('/', (req, res) => {
     let endSession = false;
     const command = normalizeText(request.request.original_utterance || "");
 
-    // ===================== Авторизация (тестовая через Render) =====================
+    // ===================== Авторизация =====================
     if (!session.user?.access_token) {
         return res.json({
             version: "1.0",
             response: {
                 text: "Чтобы продолжить, войдите через аккаунт",
-                card: { type: "account_link" },
                 end_session: false
-            }
+            },
+            session: session
         });
     }
 
@@ -132,67 +132,3 @@ app.post('/', (req, res) => {
             responseText = withAudio(`Повторяем следующее четверостишье: ${linesToTeach}. Теперь повторяйте сами по строчкам`);
             session.state.stage = "repeat_lines";
             session.state.teachIndex = 0;
-        } else {
-            responseText = withAudio("Хорошо, перейдём к следующему или на сегодня достаточно поэзии?");
-            session.state.stage = "ask_skip_or_stop";
-        }
-    }
-    else if (session.state.stage === "repeat_lines") {
-        session.state.teachIndex++;
-        if (session.state.teachIndex >= 4 || session.state.lineIndex + session.state.teachIndex >= poems[session.state.poem].length) {
-            session.state.lineIndex += 4;
-            responseText = withAudio("Четверостишье повторено, продолжаем стихотворение?");
-            session.state.stage = "recite_line";
-        } else {
-            responseText = withAudio("Теперь следующая строчка повторяем");
-        }
-    }
-    else if (session.state.stage === "ask_skip_or_stop") {
-        if (command.includes("всё хватит") || command.includes("стоп")) {
-            const randomFarewellIndex = Math.floor(Math.random() * farewells.length);
-            responseText = withAudio(farewells[randomFarewellIndex]);
-            endSession = true;
-        } else {
-            responseText = withAudio("Хорошо, продолжаем другой стих или повторяем предыдущий?");
-        }
-    }
-    else if (command.includes("привет")) {
-        responseText = withAudio("Привет! Как твои дела?");
-    } else if (command.includes("пока")) {
-        const randomFarewellIndex = Math.floor(Math.random() * farewells.length);
-        responseText = withAudio(farewells[randomFarewellIndex]);
-        endSession = true;
-    } else {
-        responseText = withAudio("Я не понимаю");
-    }
-
-    res.json({
-        version: "1.0",
-        response: {
-            text: responseText,
-            tts: responseText,
-            end_session: endSession
-        },
-        session: session
-    });
-});
-
-// ===================== OAuth (Render) =====================
-app.get('/auth', (req, res) => {
-    // Можно просто редирект на токен
-    res.redirect(`/token`);
-});
-
-app.get('/token', (req, res) => {
-    res.json({
-        access_token: "demo-token-for-user",
-        token_type: "Bearer",
-        expires_in: 3600
-    });
-});
-
-// ===================== START SERVER =====================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
-});
